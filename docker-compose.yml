@@ -1,0 +1,19 @@
+#Docker compose yml
+version: '3.3'
+services:
+  ajo_app_api:
+    container_name: ajo-app
+    image: ajo-app
+    build: ./
+    ports:
+      - "8000:8080"
+    depends_on:
+      - postgresqldb
+  postgresqldb:
+    image: postgres
+    ports:
+      - "5440:5432"
+    environment:
+      - POSTGRES_PASSWORD=1234
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=ajo_app_db

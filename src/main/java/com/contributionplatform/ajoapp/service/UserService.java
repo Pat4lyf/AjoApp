@@ -19,4 +19,8 @@ public interface UserService {
 
     ResponseEntity<SignUpResponse> editMemberDetails(UpdateRequest updateRequest);
 
+    ResponseEntity<SignUpResponse> editMemberDetails(Long id, UpdateRequest updateRequest);
+
+
+
 }

@@ -115,11 +115,12 @@ public class UserServiceImplementation implements UserService {
         if (optional.isEmpty()) throw new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND);
         User user = optional.get();
 
-        user.setFirstName(updateRequest.getFirstName());
 
         ModelMapper mapper = new ModelMapper();
         mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         mapper.map(updateRequest, user);
+
+        user.setPassword(bCryptPasswordEncoder.encode(updateRequest.getPassword()));
 
         userRepository.save(user);
 
@@ -128,5 +129,29 @@ public class UserServiceImplementation implements UserService {
 
         return new ResponseEntity<>(signUpResponse, HttpStatus.OK);
     }
+
+    @Override
+    public ResponseEntity<SignUpResponse> editMemberDetails(Long id, UpdateRequest updateRequest) {
+        Optional<User> optional = userRepository.findById(id);
+
+        if (optional.isEmpty()) throw new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND);
+
+        User user = optional.get();
+
+
+        ModelMapper mapper = new ModelMapper();
+        mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
+        mapper.map(updateRequest, user);
+
+        user.setPassword(bCryptPasswordEncoder.encode(updateRequest.getPassword()));
+
+        userRepository.save(user);
+
+
+        SignUpResponse signUpResponse = mapper.map(user, SignUpResponse.class);
+
+        return new ResponseEntity<>(signUpResponse, HttpStatus.OK);
+    }
+
 
 }

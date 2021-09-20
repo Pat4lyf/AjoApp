@@ -46,4 +46,11 @@ public class UserController {
     public ResponseEntity<SignUpResponse> editDetails(@Valid @RequestBody UpdateRequest updateRequest) {
         return userService.editMemberDetails(updateRequest);
     }
+
+    @PatchMapping("/edit_details/{userId}")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
+    public ResponseEntity<SignUpResponse> editMemberDetails(@PathVariable Long userId,
+                                                            @Valid @RequestBody UpdateRequest updateRequest) {
+        return userService.editMemberDetails(userId, updateRequest);
+    }
 }
