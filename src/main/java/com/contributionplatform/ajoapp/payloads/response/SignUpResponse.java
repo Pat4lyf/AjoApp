@@ -17,6 +17,7 @@ public class SignUpResponse {
     private String phoneNumber;
     private String emailAddress;
     private Roles role;
+    private Date dateJoined;
 
     public SignUpResponse(String userId, String firstName, String lastName, String emailAddress, Roles role) {
         this.userId = userId;

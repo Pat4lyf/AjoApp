@@ -1,8 +1,10 @@
 package com.contributionplatform.ajoapp.controllers;
 
+import com.contributionplatform.ajoapp.models.Requests;
 import com.contributionplatform.ajoapp.payloads.request.LoginRequest;
 import com.contributionplatform.ajoapp.payloads.request.SignUpRequest;
 import com.contributionplatform.ajoapp.payloads.request.UpdateRequest;
+import com.contributionplatform.ajoapp.payloads.response.Response;
 import com.contributionplatform.ajoapp.payloads.response.SignUpResponse;
 import com.contributionplatform.ajoapp.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,5 +54,12 @@ public class UserController {
     public ResponseEntity<SignUpResponse> editMemberDetails(@PathVariable Long userId,
                                                             @Valid @RequestBody UpdateRequest updateRequest) {
         return userService.editMemberDetails(userId, updateRequest);
+    }
+
+    @PostMapping("/join_cycle/{contributionCycleId}")
+    @PreAuthorize("hasRole('MEMBER')")
+    public ResponseEntity<Response> requestToJoinACycle(@PathVariable Long contributionCycleId,
+                                                        Requests request) {
+        return userService.requestToJoinACycle(request, contributionCycleId);
     }
 }

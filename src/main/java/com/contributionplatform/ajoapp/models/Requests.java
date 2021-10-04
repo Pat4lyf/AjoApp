@@ -18,6 +18,9 @@ public class Requests implements Serializable {
     private Date dateOfRequest;
 
     @Column(nullable = false)
-    private RequestStatus requestStatus;
+    private String requestStatus;
+
+    @Column(nullable = false)
+    private String requestMessage;
 
 }

@@ -2,17 +2,24 @@ package com.contributionplatform.ajoapp.service.serviceimplementation;
 
 import com.contributionplatform.ajoapp.configurations.security.service.UserDetailService;
 import com.contributionplatform.ajoapp.configurations.security.util.JwtUtil;
+import com.contributionplatform.ajoapp.enums.Request;
+import com.contributionplatform.ajoapp.enums.RequestStatus;
 import com.contributionplatform.ajoapp.enums.Roles;
 import com.contributionplatform.ajoapp.exceptions.ResourceNotFoundException;
 import com.contributionplatform.ajoapp.exceptions.UserAlreadyExistsException;
 import com.contributionplatform.ajoapp.exceptions.BadCredentialsException;
 import com.contributionplatform.ajoapp.exceptions.UserNotFoundException;
+import com.contributionplatform.ajoapp.models.ContributionCycle;
+import com.contributionplatform.ajoapp.models.Requests;
 import com.contributionplatform.ajoapp.models.User;
 import com.contributionplatform.ajoapp.payloads.request.LoginRequest;
 import com.contributionplatform.ajoapp.payloads.request.SignUpRequest;
 import com.contributionplatform.ajoapp.payloads.request.UpdateRequest;
 import com.contributionplatform.ajoapp.payloads.response.LoginResponse;
+import com.contributionplatform.ajoapp.payloads.response.Response;
 import com.contributionplatform.ajoapp.payloads.response.SignUpResponse;
+import com.contributionplatform.ajoapp.repositories.ContributionCycleRepository;
+import com.contributionplatform.ajoapp.repositories.RequestsRepository;
 import com.contributionplatform.ajoapp.repositories.UserRepository;
 import com.contributionplatform.ajoapp.service.UserService;
 import lombok.AllArgsConstructor;
@@ -29,6 +36,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -38,6 +47,8 @@ import java.util.stream.Collectors;
 public class UserServiceImplementation implements UserService {
 
     private final UserRepository userRepository;
+    private final RequestsRepository requestsRepository;
+    private final ContributionCycleRepository contributionCycleRepository;
     private final UserDetailService userDetailService;
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
@@ -85,7 +96,7 @@ public class UserServiceImplementation implements UserService {
             User newUser = mapper.map(signUpRequest, User.class);
             newUser.setRole(Roles.MEMBER.toString());
             newUser.setPassword(bCryptPasswordEncoder.encode(signUpRequest.getPassword()));
-            System.out.println(bCryptPasswordEncoder.encode((signUpRequest.getPassword())));
+            newUser.setDateJoined(new Date());
             if(signUpRequest.getPhoneNumber() == null) throw new BadCredentialsException("Phone Number cannot be null", HttpStatus.BAD_REQUEST);
             userRepository.save(newUser);
             SignUpResponse signUpResponse = mapper.map(newUser, SignUpResponse.class);
@@ -101,6 +112,7 @@ public class UserServiceImplementation implements UserService {
             mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
             User newAdmin = mapper.map(signUpRequest, User.class);
             newAdmin.setRole(Roles.ADMIN.toString());
+            newAdmin.setDateJoined(new Date());
             newAdmin.setPassword(bCryptPasswordEncoder.encode(signUpRequest.getPassword()));
             userRepository.save(newAdmin);
             SignUpResponse signUpResponse = mapper.map(newAdmin, SignUpResponse.class);
@@ -151,6 +163,42 @@ public class UserServiceImplementation implements UserService {
         SignUpResponse signUpResponse = mapper.map(user, SignUpResponse.class);
 
         return new ResponseEntity<>(signUpResponse, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<Response> requestToJoinACycle(Requests request, Long contributionCycleId) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        Optional<User> optional = userRepository.findUserByEmailAddress(email);
+        if (optional.isEmpty()) throw new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND);
+        User user = optional.get();
+
+        request.setDateOfRequest(new Date());
+
+        Optional<ContributionCycle> optionalContributionCycle = contributionCycleRepository.findById(contributionCycleId);
+
+        ContributionCycle contributionCycle = optionalContributionCycle.get();
+
+        int dateDifference = request.getDateOfRequest().toString().compareTo(contributionCycle.getStartDate().toString());
+
+        Response response = new Response();
+        if (dateDifference < 0) {
+            request.setRequestStatus(RequestStatus.PENDING.toString());
+            request.setRequestMessage(Request.JOIN_A_CYCLE.toString());
+
+            user.getListOfRequests().add(request);
+            userRepository.save(user);
+            requestsRepository.save(request);
+
+
+            response.setMessage("Request sent successfully");
+            response.setStatusCode(200);
+        } else {
+            response.setMessage("You cannot join the present cycle. Wait till a new cycle begins.");
+            response.setStatusCode(404);
+            return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+        }
+
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
 
