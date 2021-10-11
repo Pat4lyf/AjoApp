@@ -2,6 +2,7 @@ package com.contributionplatform.ajoapp.service.serviceimplementation;
 
 import com.contributionplatform.ajoapp.configurations.security.service.UserDetailService;
 import com.contributionplatform.ajoapp.configurations.security.util.JwtUtil;
+import com.contributionplatform.ajoapp.enums.PaymentType;
 import com.contributionplatform.ajoapp.enums.Request;
 import com.contributionplatform.ajoapp.enums.RequestStatus;
 import com.contributionplatform.ajoapp.enums.Roles;
@@ -10,6 +11,7 @@ import com.contributionplatform.ajoapp.exceptions.UserAlreadyExistsException;
 import com.contributionplatform.ajoapp.exceptions.BadCredentialsException;
 import com.contributionplatform.ajoapp.exceptions.UserNotFoundException;
 import com.contributionplatform.ajoapp.models.ContributionCycle;
+import com.contributionplatform.ajoapp.models.Contributions;
 import com.contributionplatform.ajoapp.models.Requests;
 import com.contributionplatform.ajoapp.models.User;
 import com.contributionplatform.ajoapp.payloads.request.LoginRequest;
@@ -18,7 +20,9 @@ import com.contributionplatform.ajoapp.payloads.request.UpdateRequest;
 import com.contributionplatform.ajoapp.payloads.response.LoginResponse;
 import com.contributionplatform.ajoapp.payloads.response.Response;
 import com.contributionplatform.ajoapp.payloads.response.SignUpResponse;
+import com.contributionplatform.ajoapp.paymentservice.core.Transactions;
 import com.contributionplatform.ajoapp.repositories.ContributionCycleRepository;
+import com.contributionplatform.ajoapp.repositories.ContributionsRepository;
 import com.contributionplatform.ajoapp.repositories.RequestsRepository;
 import com.contributionplatform.ajoapp.repositories.UserRepository;
 import com.contributionplatform.ajoapp.service.UserService;
@@ -36,7 +40,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.security.Principal;
 import java.time.LocalDate;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +54,7 @@ public class UserServiceImplementation implements UserService {
 
     private final UserRepository userRepository;
     private final RequestsRepository requestsRepository;
+    private final ContributionsRepository contributionsRepository;
     private final ContributionCycleRepository contributionCycleRepository;
     private final UserDetailService userDetailService;
     private final AuthenticationManager authenticationManager;
@@ -56,10 +63,9 @@ public class UserServiceImplementation implements UserService {
 
     @Override
     public User findUserByEmailAddress(String emailAddress) {
-        Optional<User> user = userRepository.findUserByEmailAddress(emailAddress);
-        if(user.isEmpty()) throw new ResourceNotFoundException(
-                "Incorrect parameter; Email Address " + emailAddress + " does not exist");
-        return user.get();
+        return userRepository.findUserByEmailAddress(emailAddress).orElseThrow(
+                () -> new ResourceNotFoundException("Incorrect parameter; Email Address " + emailAddress + " does not exist")
+        );
     }
 
     @Override
@@ -104,51 +110,22 @@ public class UserServiceImplementation implements UserService {
         } else throw new UserAlreadyExistsException("Member Already Exists!", HttpStatus.BAD_REQUEST);
     }
 
+
     @Override
-    public ResponseEntity<SignUpResponse> createNewAdminAccount(SignUpRequest signUpRequest) {
-        Optional<User> admin = userRepository.findUserByEmailAddress(signUpRequest.getEmailAddress());
-        if(admin.isEmpty()){
-            ModelMapper mapper = new ModelMapper();
-            mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-            User newAdmin = mapper.map(signUpRequest, User.class);
-            newAdmin.setRole(Roles.ADMIN.toString());
-            newAdmin.setDateJoined(new Date());
-            newAdmin.setPassword(bCryptPasswordEncoder.encode(signUpRequest.getPassword()));
-            userRepository.save(newAdmin);
-            SignUpResponse signUpResponse = mapper.map(newAdmin, SignUpResponse.class);
-            return new ResponseEntity<>(signUpResponse, HttpStatus.CREATED);
-        } else throw new UserAlreadyExistsException("Admin Already Exists!", HttpStatus.BAD_REQUEST);
+    public User getUser() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        return userRepository.findUserByEmailAddress(email).orElseThrow(
+                () -> new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND)
+        );
     }
 
     @Override
     public ResponseEntity<SignUpResponse> editMemberDetails(UpdateRequest updateRequest) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        Optional<User> optional = userRepository.findUserByEmailAddress(email);
-        if (optional.isEmpty()) throw new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND);
-        User user = optional.get();
+        User user = userRepository.findUserByEmailAddress(email).orElseThrow(
+                () -> new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND)
+        );
 
-
-        ModelMapper mapper = new ModelMapper();
-        mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
-        mapper.map(updateRequest, user);
-
-        user.setPassword(bCryptPasswordEncoder.encode(updateRequest.getPassword()));
-
-        userRepository.save(user);
-
-
-        SignUpResponse signUpResponse = mapper.map(user, SignUpResponse.class);
-
-        return new ResponseEntity<>(signUpResponse, HttpStatus.OK);
-    }
-
-    @Override
-    public ResponseEntity<SignUpResponse> editMemberDetails(Long id, UpdateRequest updateRequest) {
-        Optional<User> optional = userRepository.findById(id);
-
-        if (optional.isEmpty()) throw new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND);
-
-        User user = optional.get();
 
 
         ModelMapper mapper = new ModelMapper();
@@ -164,13 +141,15 @@ public class UserServiceImplementation implements UserService {
 
         return new ResponseEntity<>(signUpResponse, HttpStatus.OK);
     }
+
+
 
     @Override
     public ResponseEntity<Response> requestToJoinACycle(Requests request, Long contributionCycleId) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
-        Optional<User> optional = userRepository.findUserByEmailAddress(email);
-        if (optional.isEmpty()) throw new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND);
-        User user = optional.get();
+        User user = userRepository.findUserByEmailAddress(email).orElseThrow(
+                () -> new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND)
+        );
 
         request.setDateOfRequest(new Date());
 
@@ -185,9 +164,9 @@ public class UserServiceImplementation implements UserService {
             request.setRequestStatus(RequestStatus.PENDING.toString());
             request.setRequestMessage(Request.JOIN_A_CYCLE.toString());
 
+            requestsRepository.save(request);
             user.getListOfRequests().add(request);
             userRepository.save(user);
-            requestsRepository.save(request);
 
 
             response.setMessage("Request sent successfully");
@@ -198,6 +177,110 @@ public class UserServiceImplementation implements UserService {
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<Response> requestToDeleteAccount() {
+        Requests request = new Requests();
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findUserByEmailAddress(email).orElseThrow(
+                () -> new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND)
+        );
+
+        request.setDateOfRequest(new Date());
+        request.setRequestStatus(RequestStatus.PENDING.toString());
+        request.setRequestMessage(Request.DELETE_ACCOUNT.name());
+
+        requestsRepository.save(request);
+        user.getListOfRequests().add(request);
+        userRepository.save(user);
+
+        Response response = new Response();
+
+        response.setMessage("Request sent successfully");
+        response.setStatusCode(200);
+
+
+//        Transactions transactions = new Transactions();
+//        transactions.initializeTransaction();
+
+
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @Override
+    public List<User> getCycleMembers(Long contributionCycleId) throws Exception {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findUserByEmailAddress(email).orElseThrow(
+                () -> new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND)
+        );
+
+        ContributionCycle contributionCycle = contributionCycleRepository.findById(contributionCycleId).orElseThrow(
+                () ->  new ResourceNotFoundException("CYCLE NOT FOUND", HttpStatus.NOT_FOUND));
+
+        if (contributionCycle.getListOfCycleMembers().contains(user)) {
+            return contributionCycle.getListOfCycleMembers();
+        } else {
+            throw new Exception("NOT A MEMBER OF THIS CYCLE");
+        }
+
+    }
+
+    @Override
+    public List<Contributions> getAllContributions(Long contributionCycleId) throws Exception {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findUserByEmailAddress(email).orElseThrow(
+                () -> new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND)
+        );
+
+        ContributionCycle contributionCycle = contributionCycleRepository.findById(contributionCycleId).orElseThrow(
+                () ->  new ResourceNotFoundException("CYCLE NOT FOUND", HttpStatus.NOT_FOUND));
+
+        if (contributionCycle.getListOfCycleMembers().contains(user)) {
+            return contributionCycle.getListOfContributions();
+        } else {
+            throw new Exception("NOT A MEMBER OF THIS CYCLE");
+        }
+    }
+
+    @Override
+    public ResponseEntity<Response> makePayment(Contributions contribution, Long contributionCycleId) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findUserByEmailAddress(email).orElseThrow(
+                () ->  new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND));
+
+        ContributionCycle contributionCycle = contributionCycleRepository.findById(contributionCycleId).orElseThrow(
+                () ->  new ResourceNotFoundException("CYCLE NOT FOUND", HttpStatus.NOT_FOUND));
+
+
+        Response response = new Response();
+
+        if(contributionCycle.getListOfCycleMembers().contains(user)) {
+            contribution.setDatePaid(new Date());
+
+            String contributionCyclePaymentStartDate = contributionCycle.getPaymentStartDate().toString();
+            String contributionCyclePaymentEndDate = contributionCycle.getPaymentEndDate().toString();
+
+            int startDateDifference = contribution.getDatePaid().toString().compareTo(contributionCyclePaymentStartDate);
+            int endDateDifference = contribution.getDatePaid().toString().compareTo(contributionCyclePaymentEndDate);
+
+
+            if (startDateDifference > 0 || endDateDifference < 0) {
+                contribution.setContributionCycleId(contributionCycleId);
+                contribution.setAmountPaid(5000d);
+                contribution.setPaymentType(PaymentType.DEBIT.name());
+                contribution.setUserId(user.getUserId());
+                contributionsRepository.save(contribution);
+                response.setMessage("SUCCESSFUL PAYMENT");
+                response.setStatusCode(200);
+            } else {
+                response.setStatusCode(400);
+                response.setMessage("MAKE PAYMENT BETWEEN " + contributionCyclePaymentStartDate +
+                        " - " + contributionCyclePaymentEndDate);
+                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+            }
+        }
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 

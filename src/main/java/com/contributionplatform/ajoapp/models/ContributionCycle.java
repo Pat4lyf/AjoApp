@@ -24,6 +24,9 @@ public class ContributionCycle implements Serializable {
     private Date endDate;
 
     @Column(nullable = false)
+    private boolean status;
+
+    @Column(nullable = false)
     private Date paymentStartDate;
 
     @Column(nullable = false)

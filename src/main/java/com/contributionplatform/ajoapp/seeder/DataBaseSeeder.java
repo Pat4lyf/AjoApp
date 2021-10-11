@@ -10,6 +10,7 @@ import org.springframework.context.event.EventListener;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Component;
 
+import java.util.Date;
 import java.util.Optional;
 
 @Component
@@ -34,6 +35,7 @@ public class DataBaseSeeder {
                 user.setEmailAddress("admin@ajo.com");
                 user.setPassword(new BCryptPasswordEncoder().encode("Aj1222#%^nnsergl"));
                 user.setRole(Roles.SUPER_ADMIN.toString());
+                user.setDateJoined(new Date());
                 userRepository.save(user);
                 log.info("Super Admin Successfully Seeded");
             } else {
