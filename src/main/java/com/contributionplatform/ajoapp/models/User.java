@@ -1,5 +1,6 @@
 package com.contributionplatform.ajoapp.models;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import javax.persistence.*;
@@ -39,12 +40,15 @@ public class User implements Serializable {
     @Column
     private Date dateJoined;
 
+    @JsonIgnore
     @OneToMany(targetEntity = Contributions.class)
     private List<Contributions> listOfContributions;
 
+    @JsonIgnore
     @OneToMany(targetEntity = Requests.class)
     private List<Requests> listOfRequests;
 
+    @JsonIgnore
     @ManyToMany(targetEntity = ContributionCycle.class)
     private List<ContributionCycle> listOfContributionCycle;
 

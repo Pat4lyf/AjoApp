@@ -17,15 +17,23 @@ public class Contributions implements Serializable {
 
     @Id
     @GeneratedValue
-    private Long contributionsId;
+    private long contributionsId;
 
     @Column(nullable = false)
     private Date datePaid;
 
     @Column(nullable = false)
-    private PaymentType paymentType;
+    private String paymentType;
 
     @Column(nullable = false)
     private Double amountPaid;
+
+    @Column
+    private long userId;
+
+    @Column
+    private long contributionCycleId;
+
+    private String paymentReference;
 
 }

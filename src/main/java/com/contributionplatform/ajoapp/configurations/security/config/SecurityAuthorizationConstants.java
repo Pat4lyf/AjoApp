@@ -24,7 +24,7 @@ public class SecurityAuthorizationConstants {
             "/login",
             "/api/login",
             "/register",
-            "/api/users/register",
+            "/api/register",
             "/api/register_admin"
     };
 }
