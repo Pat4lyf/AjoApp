@@ -11,7 +11,7 @@ import java.util.Date;
 @AllArgsConstructor
 @NoArgsConstructor
 public class ContributionCycleResponse {
-    private long contributionCycleId;
+    private String contributionCycleId;
 
     private String name;
 
@@ -21,8 +21,8 @@ public class ContributionCycleResponse {
 
     private boolean status;
 
-    private Date paymentStartDate;
+    private int paymentStartDay;
 
-    private Date paymentEndDate;
+    private int paymentEndDay;
 
 }

@@ -51,4 +51,12 @@ public class AdminController {
         return adminService.deleteCycle();
     }
 
+
+    @PostMapping("/add-member-to-cycle")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'ADMIN')")
+    public ResponseEntity<Response> addMemberToCycle() {
+        return adminService.addMemberToACycle();
+    }
+
+
 }

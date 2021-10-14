@@ -47,11 +47,10 @@ public class UserController {
     }
 
 
-    @PostMapping("/join-cycle/{contributionCycleId}")
+    @PostMapping("/join-cycle")
     @PreAuthorize("hasRole('MEMBER')")
-    public ResponseEntity<Response> requestToJoinACycle(@PathVariable Long contributionCycleId,
-                                                        Requests request) {
-        return userService.requestToJoinACycle(request, contributionCycleId);
+    public ResponseEntity<Response> requestToJoinACycle() {
+        return userService.requestToJoinACycle();
     }
 
 

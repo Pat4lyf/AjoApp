@@ -27,10 +27,10 @@ public class ContributionCycle implements Serializable {
     private boolean status;
 
     @Column(nullable = false)
-    private Date paymentStartDate;
+    private int paymentStartDay;
 
     @Column(nullable = false)
-    private Date paymentEndDate;
+    private int paymentEndDay;
 
     @OneToMany(targetEntity = Contributions.class)
     private List<Contributions> listOfContributions;
