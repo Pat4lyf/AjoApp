@@ -1,11 +1,14 @@
 package com.contributionplatform.ajoapp.service.serviceimplementation;
 
+import com.contributionplatform.ajoapp.enums.Request;
+import com.contributionplatform.ajoapp.enums.RequestStatus;
 import com.contributionplatform.ajoapp.enums.Roles;
 import com.contributionplatform.ajoapp.exceptions.BadCredentialsException;
 import com.contributionplatform.ajoapp.exceptions.ResourceNotFoundException;
 import com.contributionplatform.ajoapp.exceptions.UserAlreadyExistsException;
 import com.contributionplatform.ajoapp.exceptions.UserNotFoundException;
 import com.contributionplatform.ajoapp.models.ContributionCycle;
+import com.contributionplatform.ajoapp.models.Requests;
 import com.contributionplatform.ajoapp.models.User;
 import com.contributionplatform.ajoapp.payloads.request.ContributionCycleRequest;
 import com.contributionplatform.ajoapp.payloads.request.SignUpRequest;
@@ -14,6 +17,7 @@ import com.contributionplatform.ajoapp.payloads.response.ContributionCycleRespon
 import com.contributionplatform.ajoapp.payloads.response.Response;
 import com.contributionplatform.ajoapp.payloads.response.SignUpResponse;
 import com.contributionplatform.ajoapp.repositories.ContributionCycleRepository;
+import com.contributionplatform.ajoapp.repositories.RequestsRepository;
 import com.contributionplatform.ajoapp.repositories.UserRepository;
 import com.contributionplatform.ajoapp.service.AdminService;
 import lombok.AllArgsConstructor;
@@ -27,6 +31,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.Date;
+import java.util.List;
 import java.util.Optional;
 
 @AllArgsConstructor
@@ -36,19 +41,20 @@ public class AdminServiceImplementation implements AdminService {
     private final UserRepository userRepository;
     private final ContributionCycleRepository contributionCycleRepository;
     private final BCryptPasswordEncoder bCryptPasswordEncoder;
+    private final RequestsRepository requestsRepository;
 
 
     @Override
     public ResponseEntity<ContributionCycleResponse> createContributionCycle(ContributionCycleRequest contributionCycleRequest) {
-        ContributionCycle contributionCycle = contributionCycleRepository.findContributionCycleByStatus(true).orElseThrow(
-                () ->  new ResourceNotFoundException("CYCLE NOT FOUND", HttpStatus.NOT_FOUND));
+        Optional<ContributionCycle> contributionCycle = contributionCycleRepository.findContributionCycleByStatus(true);
+        contributionCycle.ifPresent(cycle -> cycle.setStatus(false));
 
-        contributionCycle.setStatus(false);
 
         ModelMapper mapper = new ModelMapper();
         mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         ContributionCycle newContributionCycle = mapper.map(contributionCycleRequest, ContributionCycle.class);
         newContributionCycle.setStatus(true);
+        contributionCycleRepository.save(newContributionCycle);
 
         ContributionCycleResponse contributionCycleResponse = mapper.map(newContributionCycle,
                                                                 ContributionCycleResponse.class);
@@ -128,6 +134,41 @@ public class AdminServiceImplementation implements AdminService {
             return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
         }
 
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @Override
+    public ResponseEntity<Response> addMemberToACycle() {
+        List<User> listOfUsers = userRepository.findAllByRole("MEMBER");
+        for (User user: listOfUsers) {
+            List<Requests> listOfRequests = user.getListOfRequests();
+            Requests requestToJoinACycle = (Requests) listOfRequests.stream().filter(requests ->
+                requests.getRequestStatus().equals("PENDING") &&
+                        requests.getRequestMessage().equals("JOIN_A_CYCLE"));
+
+            Optional<ContributionCycle> activeCycle = contributionCycleRepository.findContributionCycleByStatus(true);
+            if (activeCycle.isPresent()) {
+                ContributionCycle cycle = activeCycle.get();
+                cycle.getListOfCycleMembers().add(user);
+                requestToJoinACycle.setRequestStatus(RequestStatus.APPROVED.toString());
+                requestsRepository.save(requestToJoinACycle);
+                contributionCycleRepository.save(cycle);
+            }
+        }
+
+
+        Response response = new Response();
+        response.setStatusCode(200);
+        response.setMessage("MEMBERS SUCCESSFULLY ADDED TO THE CYCLE");
+
+//        listOfRequests.stream().filter(requests ->
+//                requests.getRequestStatus().equals("PENDING") &&
+//                        requests.getRequestMessage().equals("JOIN_A_CYCLE"));
+//
+//
+//        if (user.getListOfRequests().contains(Request.JOIN_A_CYCLE)) {
+//
+//        }
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 

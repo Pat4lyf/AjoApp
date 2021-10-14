@@ -40,9 +40,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
-import java.security.Principal;
 import java.time.LocalDate;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -126,8 +124,6 @@ public class UserServiceImplementation implements UserService {
                 () -> new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND)
         );
 
-
-
         ModelMapper mapper = new ModelMapper();
         mapper.getConfiguration().setMatchingStrategy(MatchingStrategies.STRICT);
         mapper.map(updateRequest, user);
@@ -135,7 +131,6 @@ public class UserServiceImplementation implements UserService {
         user.setPassword(bCryptPasswordEncoder.encode(updateRequest.getPassword()));
 
         userRepository.save(user);
-
 
         SignUpResponse signUpResponse = mapper.map(user, SignUpResponse.class);
 
@@ -145,22 +140,24 @@ public class UserServiceImplementation implements UserService {
 
 
     @Override
-    public ResponseEntity<Response> requestToJoinACycle(Requests request, Long contributionCycleId) {
+    public ResponseEntity<Response> requestToJoinACycle() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findUserByEmailAddress(email).orElseThrow(
                 () -> new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND)
         );
 
-        request.setDateOfRequest(new Date());
+        Requests request = new Requests();
 
-        Optional<ContributionCycle> optionalContributionCycle = contributionCycleRepository.findById(contributionCycleId);
+        Optional<ContributionCycle> optionalContributionCycle = contributionCycleRepository.findContributionCycleByStatus(true);
 
         ContributionCycle contributionCycle = optionalContributionCycle.get();
 
-        int dateDifference = request.getDateOfRequest().toString().compareTo(contributionCycle.getStartDate().toString());
+
+        Date presentDate = new Date();
 
         Response response = new Response();
-        if (dateDifference < 0) {
+        if (presentDate.before(contributionCycle.getStartDate())) {
+            request.setDateOfRequest(presentDate);
             request.setRequestStatus(RequestStatus.PENDING.toString());
             request.setRequestMessage(Request.JOIN_A_CYCLE.toString());
 
@@ -245,29 +242,30 @@ public class UserServiceImplementation implements UserService {
     }
 
     @Override
-    public ResponseEntity<Response> makePayment(Contributions contribution, Long contributionCycleId) {
+    public ResponseEntity<Response> makePayment(Contributions contribution) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findUserByEmailAddress(email).orElseThrow(
                 () ->  new UserNotFoundException("USER NOT FOUND", HttpStatus.NOT_FOUND));
 
-        ContributionCycle contributionCycle = contributionCycleRepository.findById(contributionCycleId).orElseThrow(
-                () ->  new ResourceNotFoundException("CYCLE NOT FOUND", HttpStatus.NOT_FOUND));
+        ContributionCycle contributionCycle = contributionCycleRepository.findContributionCycleByStatus(true).orElseThrow(
+                () ->  new ResourceNotFoundException("NO ACTIVE CYCLE", HttpStatus.NOT_FOUND));
 
 
         Response response = new Response();
 
         if(contributionCycle.getListOfCycleMembers().contains(user)) {
-            contribution.setDatePaid(new Date());
+            int presentDay = LocalDate.now().getDayOfMonth();
 
-            String contributionCyclePaymentStartDate = contributionCycle.getPaymentStartDate().toString();
-            String contributionCyclePaymentEndDate = contributionCycle.getPaymentEndDate().toString();
+            int contributionCyclePaymentStartDay = contributionCycle.getPaymentStartDay();
+            int contributionCyclePaymentEndDay = contributionCycle.getPaymentEndDay();
 
-            int startDateDifference = contribution.getDatePaid().toString().compareTo(contributionCyclePaymentStartDate);
-            int endDateDifference = contribution.getDatePaid().toString().compareTo(contributionCyclePaymentEndDate);
+            if (presentDay >= contributionCyclePaymentStartDay && presentDay <= contributionCyclePaymentEndDay) {
 
-
-            if (startDateDifference > 0 || endDateDifference < 0) {
-                contribution.setContributionCycleId(contributionCycleId);
+                Transactions transactions = new Transactions();
+//                transactions.initializeTransaction()
+//                transactions.initializeTransaction();
+                contribution.setContributionCycleId(contributionCycle.getContributionCycleId());
+                contribution.setDatePaid(new Date());
                 contribution.setAmountPaid(5000d);
                 contribution.setPaymentType(PaymentType.DEBIT.name());
                 contribution.setUserId(user.getUserId());
@@ -276,12 +274,17 @@ public class UserServiceImplementation implements UserService {
                 response.setStatusCode(200);
             } else {
                 response.setStatusCode(400);
-                response.setMessage("MAKE PAYMENT BETWEEN " + contributionCyclePaymentStartDate +
-                        " - " + contributionCyclePaymentEndDate);
+                response.setMessage("MAKE PAYMENT BETWEEN " + contributionCyclePaymentStartDay +
+                        " - " + contributionCyclePaymentEndDay);
                 return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
             }
         }
         return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @Override
+    public List<User> getAllUsers() {
+        return userRepository.findAll();
     }
 
 

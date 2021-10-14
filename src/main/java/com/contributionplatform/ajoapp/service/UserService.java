@@ -24,7 +24,7 @@ public interface UserService {
 
     ResponseEntity<SignUpResponse> editMemberDetails(UpdateRequest updateRequest);
 
-    ResponseEntity<Response> requestToJoinACycle(Requests request, Long contributionCycleId);
+    ResponseEntity<Response> requestToJoinACycle();
 
     ResponseEntity<Response> requestToDeleteAccount();
 
@@ -32,7 +32,9 @@ public interface UserService {
 
     List<Contributions> getAllContributions(Long contributionCycleId) throws Exception;
 
-    ResponseEntity<Response> makePayment(Contributions contribution, Long contributionCycleId);
+    ResponseEntity<Response> makePayment(Contributions contribution);
+
+    List<User> getAllUsers();
 
 
 

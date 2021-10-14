@@ -1,6 +1,7 @@
 package com.contributionplatform.ajoapp.service;
 
 import com.contributionplatform.ajoapp.models.ContributionCycle;
+import com.contributionplatform.ajoapp.models.User;
 import com.contributionplatform.ajoapp.payloads.request.ContributionCycleRequest;
 import com.contributionplatform.ajoapp.payloads.request.SignUpRequest;
 import com.contributionplatform.ajoapp.payloads.request.UpdateRequest;
@@ -25,6 +26,8 @@ public interface AdminService {
     ResponseEntity<ContributionCycleResponse> editCycleDetails(UpdateRequest updateRequest);
 
     ResponseEntity<Response> deleteCycle();
+
+    ResponseEntity<Response> addMemberToACycle();
 
 
 
